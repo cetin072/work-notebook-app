@@ -11,6 +11,7 @@ data class WorkDraft(
     val workTime: String? = null,
     val editingId: String? = null,
     val editingCreatedAt: Long? = null,
+    val editingIsCompleted: Boolean = false,
 )
 
 class DraftStore(context: Context) {
@@ -27,6 +28,7 @@ class DraftStore(context: Context) {
         } else {
             null
         },
+        editingIsCompleted = prefs.getBoolean("editingIsCompleted", false),
     )
 
     fun save(draft: WorkDraft) {
@@ -36,6 +38,7 @@ class DraftStore(context: Context) {
             putString("workDate", draft.workDate)
             putString("workTime", draft.workTime)
             putString("editingId", draft.editingId)
+            putBoolean("editingIsCompleted", draft.editingIsCompleted)
             if (draft.editingCreatedAt != null) {
                 putLong("editingCreatedAt", draft.editingCreatedAt)
             } else {
