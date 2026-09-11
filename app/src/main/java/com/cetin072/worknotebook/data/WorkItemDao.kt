@@ -22,6 +22,18 @@ interface WorkItemDao {
     )
     fun observeAll(): Flow<List<WorkItemEntity>>
 
+    @Query(
+        """
+        SELECT * FROM work_items
+        WHERE isCompleted = 0 AND workDate = :today
+        ORDER BY
+            CASE WHEN workTime IS NULL THEN 1 ELSE 0 END ASC,
+            workTime ASC,
+            createdAt DESC
+        """
+    )
+    suspend fun getTodayPending(today: String): List<WorkItemEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(item: WorkItemEntity)
 
