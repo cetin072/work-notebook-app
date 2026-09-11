@@ -10,6 +10,7 @@ data class WorkItemEntity(
     val content: String,
     val workDate: String?,
     val workTime: String?,
+    val photoPath: String?,
     val isCompleted: Boolean,
     val createdAt: Long,
     val updatedAt: Long,

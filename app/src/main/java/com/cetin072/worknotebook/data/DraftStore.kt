@@ -9,6 +9,7 @@ data class WorkDraft(
     val content: String = "",
     val workDate: String? = null,
     val workTime: String? = null,
+    val photoPath: String? = null,
     val editingId: String? = null,
     val editingCreatedAt: Long? = null,
     val editingIsCompleted: Boolean = false,
@@ -22,6 +23,7 @@ class DraftStore(context: Context) {
         content = prefs.getString("content", "").orEmpty(),
         workDate = prefs.getString("workDate", null),
         workTime = prefs.getString("workTime", null),
+        photoPath = prefs.getString("photoPath", null),
         editingId = prefs.getString("editingId", null),
         editingCreatedAt = if (prefs.contains("editingCreatedAt")) {
             prefs.getLong("editingCreatedAt", 0L)
@@ -37,6 +39,7 @@ class DraftStore(context: Context) {
             putString("content", draft.content)
             putString("workDate", draft.workDate)
             putString("workTime", draft.workTime)
+            putString("photoPath", draft.photoPath)
             putString("editingId", draft.editingId)
             putBoolean("editingIsCompleted", draft.editingIsCompleted)
             if (draft.editingCreatedAt != null) {
