@@ -43,6 +43,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setContent(value: String) = updateDraft { copy(content = value) }
     fun setWorkDate(value: String?) = updateDraft { copy(workDate = value) }
     fun setWorkTime(value: String?) = updateDraft { copy(workTime = value) }
+    fun setPhotoPath(value: String?) = updateDraft { copy(photoPath = value) }
 
     fun edit(item: WorkItemEntity) {
         val next = WorkDraft(
@@ -50,6 +51,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             content = item.content,
             workDate = item.workDate,
             workTime = item.workTime,
+            photoPath = item.photoPath,
             editingId = item.id,
             editingCreatedAt = item.createdAt,
             editingIsCompleted = item.isCompleted,
@@ -66,9 +68,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun save() {
         val current = _draft.value
-        val content = current.content.trim()
+        val content = current.content.trim().ifBlank {
+            if (current.photoPath != null) "사진 기록" else ""
+        }
         if (content.isBlank()) {
-            _message.value = "업무 내용을 입력하세요."
+            _message.value = "업무 내용을 입력하거나 사진을 첨부하세요."
             return
         }
 
@@ -79,6 +83,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             content = content,
             workDate = current.workDate,
             workTime = current.workTime,
+            photoPath = current.photoPath,
             isCompleted = if (current.editingId != null) current.editingIsCompleted else false,
             createdAt = current.editingCreatedAt ?: now,
             updatedAt = now,
