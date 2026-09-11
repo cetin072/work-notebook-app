@@ -61,8 +61,9 @@ input,textarea{width:100%;border:1px solid #bcc8d8;border-radius:12px;padding:12
 </div>
 <script>
 const KEY='work-notebook-preview-v1';
-const today=()=>new Date().toISOString().slice(0,10);
-function demo(){const t=today();const d=new Date();d.setDate(d.getDate()-1);const y=d.toISOString().slice(0,10);return[
+function localDateString(date=new Date()){const y=date.getFullYear();const m=String(date.getMonth()+1).padStart(2,'0');const d=String(date.getDate()).padStart(2,'0');return `${y}-${m}-${d}`}
+const today=()=>localDateString();
+function demo(){const t=today();const d=new Date();d.setDate(d.getDate()-1);const y=localDateString(d);return[
 {id:'d1',title:'대표 보고자료 정리',content:'대표 보고자료 정리',date:y,time:'',done:false},
 {id:'d2',title:'범한 견적 확인',content:'범한 견적 확인',date:t,time:'10:30',done:false},
 {id:'d3',title:'농장 일정 확인',content:'농장 일정 확인',date:t,time:'',done:false}
