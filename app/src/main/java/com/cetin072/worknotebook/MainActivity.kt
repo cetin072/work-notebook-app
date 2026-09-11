@@ -151,7 +151,7 @@ private fun WorkNotebookScreen(viewModel: MainViewModel) {
 
         item(key = "dev-version") {
             Text(
-                text = "업무수첩 Beta · ${BuildConfig.VERSION_NAME} · 로컬 저장 개발판",
+                text = "업무수첩 Beta · 0.1.0-dev · 로컬 저장 개발판",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 8.dp),
