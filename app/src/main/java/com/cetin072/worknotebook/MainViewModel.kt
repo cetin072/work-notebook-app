@@ -122,14 +122,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     workTime = current.workTime,
                     photoPath = current.photoPath,
                     isCompleted = false,
-                    createdAt = now + index,
-                    updatedAt = now + index,
+                    createdAt = now - index,
+                    updatedAt = now - index,
                 )
             }
         }
 
         viewModelScope.launch {
-            itemsToSave.forEach { repository.upsert(it) }
+            repository.upsertAll(itemsToSave)
             WorkNotebookWidgetProvider.requestUpdate(getApplication())
             clearDraft()
             _message.value = when {
