@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.Flow
 class WorkItemRepository(private val dao: WorkItemDao) {
     fun observeAll(): Flow<List<WorkItemEntity>> = dao.observeAll()
 
-    suspend fun getTodayPending(today: String): List<WorkItemEntity> = dao.getTodayPending(today)
+    suspend fun getBriefingPending(today: String): List<WorkItemEntity> = dao.getBriefingPending(today)
 
     suspend fun upsert(item: WorkItemEntity) = dao.upsert(item)
 
