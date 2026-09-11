@@ -51,6 +51,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             workTime = item.workTime,
             editingId = item.id,
             editingCreatedAt = item.createdAt,
+            editingIsCompleted = item.isCompleted,
         )
         _draft.value = next
         draftStore.save(next)
@@ -77,7 +78,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             content = content,
             workDate = current.workDate,
             workTime = current.workTime,
-            isCompleted = false,
+            isCompleted = if (current.editingId != null) current.editingIsCompleted else false,
             createdAt = current.editingCreatedAt ?: now,
             updatedAt = now,
         )
