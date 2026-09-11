@@ -10,6 +10,7 @@ import android.view.View
 import android.widget.RemoteViews
 import com.cetin072.worknotebook.MainActivity
 import com.cetin072.worknotebook.R
+import com.cetin072.worknotebook.data.WorkItemEntity
 import com.cetin072.worknotebook.data.WorkNotebookDatabase
 import java.time.LocalDate
 import kotlinx.coroutines.CoroutineScope
@@ -38,10 +39,10 @@ class WorkNotebookWidgetProvider : AppWidgetProvider() {
                 val today = LocalDate.now().toString()
                 val items = WorkNotebookDatabase.getInstance(context)
                     .workItemDao()
-                    .getTodayPending(today)
+                    .getBriefingPending(today)
 
                 ids.forEach { widgetId ->
-                    manager.updateAppWidget(widgetId, buildViews(context, items))
+                    manager.updateAppWidget(widgetId, buildViews(context, items, today))
                 }
             } finally {
                 pendingResult.finish()
@@ -49,7 +50,11 @@ class WorkNotebookWidgetProvider : AppWidgetProvider() {
         }
     }
 
-    private fun buildViews(context: Context, items: List<com.cetin072.worknotebook.data.WorkItemEntity>): RemoteViews {
+    private fun buildViews(
+        context: Context,
+        items: List<WorkItemEntity>,
+        today: String,
+    ): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_work_notebook)
         val visibleItems = items.take(3)
         val rowIds = intArrayOf(R.id.widget_item_1, R.id.widget_item_2, R.id.widget_item_3)
@@ -59,17 +64,24 @@ class WorkNotebookWidgetProvider : AppWidgetProvider() {
             if (item == null) {
                 views.setViewVisibility(viewId, View.GONE)
             } else {
-                val prefix = item.workTime?.let { "$it  " }.orEmpty()
+                val prefix = when {
+                    item.workDate != null && item.workDate < today -> "⚠ ${item.workDate}  "
+                    item.workTime != null -> "${item.workTime}  "
+                    else -> ""
+                }
                 views.setTextViewText(viewId, "${index + 1}. $prefix${item.title}")
                 views.setViewVisibility(viewId, View.VISIBLE)
             }
         }
 
+        val overdue = items.count { it.workDate != null && it.workDate < today }
+        val todayCount = items.count { it.workDate == today }
         val moreCount = (items.size - visibleItems.size).coerceAtLeast(0)
-        views.setTextViewText(
-            R.id.widget_more,
-            if (moreCount > 0) "+ ${moreCount}개 더 있음" else "오늘 미완료 ${items.size}건",
-        )
+        val summary = buildString {
+            append("지연 $overdue · 오늘 $todayCount")
+            if (moreCount > 0) append(" · +$moreCount")
+        }
+        views.setTextViewText(R.id.widget_more, summary)
 
         val openIntent = Intent(context, MainActivity::class.java)
         val openPending = PendingIntent.getActivity(
