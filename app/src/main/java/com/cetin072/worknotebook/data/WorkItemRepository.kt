@@ -9,6 +9,8 @@ class WorkItemRepository(private val dao: WorkItemDao) {
 
     suspend fun upsert(item: WorkItemEntity) = dao.upsert(item)
 
+    suspend fun upsertAll(items: List<WorkItemEntity>) = dao.upsertAll(items)
+
     suspend fun setCompleted(id: String, completed: Boolean) =
         dao.setCompleted(id, completed, System.currentTimeMillis())
 }
