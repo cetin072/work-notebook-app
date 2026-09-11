@@ -55,6 +55,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.cetin072.worknotebook.data.WorkDraft
 import com.cetin072.worknotebook.data.WorkItemEntity
+import com.cetin072.worknotebook.domain.BriefingSummary
 import com.cetin072.worknotebook.speech.VoiceInputController
 import com.cetin072.worknotebook.ui.theme.WorkNotebookTheme
 import com.cetin072.worknotebook.widget.WorkNotebookWidgetProvider
@@ -85,6 +86,7 @@ private fun WorkNotebookScreen(
 ) {
     val items by viewModel.items.collectAsStateWithLifecycle()
     val todayItems by viewModel.todayItems.collectAsStateWithLifecycle()
+    val briefing by viewModel.briefing.collectAsStateWithLifecycle()
     val draft by viewModel.draft.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
     val focusManager = LocalFocusManager.current
@@ -204,8 +206,16 @@ private fun WorkNotebookScreen(
             }
         }
 
+        item(key = "briefing") {
+            TodayBriefingCard(
+                briefing = briefing,
+                today = LocalDate.now().toString(),
+                onToggle = viewModel::toggleCompleted,
+            )
+        }
+
         item(key = "today-title") {
-            SectionTitle("오늘 할 일", "${todayItems.size}건")
+            SectionTitle("오늘 업무 전체", "${todayItems.size}건")
         }
 
         if (todayItems.isEmpty()) {
@@ -276,6 +286,80 @@ private fun WorkNotebookScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 8.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun TodayBriefingCard(
+    briefing: BriefingSummary,
+    today: String,
+    onToggle: (WorkItemEntity) -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = "오늘 브리핑",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = "지연 ${briefing.overdueCount} · 오늘 ${briefing.todayCount}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            if (briefing.topItems.isEmpty()) {
+                Text(
+                    text = "지금 바로 처리할 지연·오늘 업무가 없습니다.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                briefing.topItems.forEach { item ->
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Checkbox(
+                            checked = false,
+                            onCheckedChange = { onToggle(item) },
+                        )
+                        Column(modifier = Modifier.weight(1f).padding(top = 8.dp)) {
+                            Text(
+                                text = item.title,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            val meta = when {
+                                item.workDate != null && item.workDate < today -> "지연 · ${item.workDate}"
+                                item.workTime != null -> "오늘 ${item.workTime}"
+                                else -> "오늘"
+                            }
+                            Text(
+                                text = meta,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (item.workDate != null && item.workDate < today) {
+                                    MaterialTheme.colorScheme.error
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+
+            Text(
+                text = "인터넷이나 AI 없이 휴대폰 기록만으로 정리합니다.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
