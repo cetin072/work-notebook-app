@@ -40,6 +40,9 @@ interface WorkItemDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(item: WorkItemEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(items: List<WorkItemEntity>)
+
     @Query("UPDATE work_items SET isCompleted = :completed, updatedAt = :updatedAt WHERE id = :id")
     suspend fun setCompleted(id: String, completed: Boolean, updatedAt: Long)
 }
