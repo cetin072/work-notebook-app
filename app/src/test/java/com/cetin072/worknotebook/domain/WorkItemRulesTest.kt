@@ -32,4 +32,36 @@ class WorkItemRulesTest {
         assertFalse(WorkItemRules.isTodayPending("2026-09-12", false, "2026-09-11"))
         assertFalse(WorkItemRules.isTodayPending(null, false, "2026-09-11"))
     }
+
+    @Test
+    fun `explicit work markers split multiple tasks`() {
+        assertEquals(
+            listOf("대표님 보고자료 정리", "범한 견적 확인", "농장 일정 확인"),
+            WorkItemRules.splitWorkSegments(
+                "대표님 보고자료 정리 다음 업무 범한 견적 확인 다음 건 농장 일정 확인",
+            ),
+        )
+    }
+
+    @Test
+    fun `geudaeum marker also splits tasks`() {
+        assertEquals(
+            listOf("계약서 확인", "세금계산서 발행"),
+            WorkItemRules.splitWorkSegments("계약서 확인 그다음 세금계산서 발행"),
+        )
+    }
+
+    @Test
+    fun `plain word next does not split normal sentence`() {
+        val content = "다음 주 월요일 대표님께 보고한다"
+        assertEquals(listOf(content), WorkItemRules.splitWorkSegments(content))
+    }
+
+    @Test
+    fun `empty fragments around markers are ignored`() {
+        assertEquals(
+            listOf("첫 업무", "둘째 업무"),
+            WorkItemRules.splitWorkSegments("다음 업무 첫 업무 다음 업무 다음 건 둘째 업무"),
+        )
+    }
 }
