@@ -4,12 +4,15 @@ import android.Manifest
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -33,35 +36,42 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.cetin072.worknotebook.data.WorkDraft
 import com.cetin072.worknotebook.data.WorkItemEntity
 import com.cetin072.worknotebook.speech.VoiceInputController
 import com.cetin072.worknotebook.ui.theme.WorkNotebookTheme
+import com.cetin072.worknotebook.widget.WorkNotebookWidgetProvider
+import java.io.File
 import java.time.LocalDate
 import java.time.LocalTime
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val initialWidgetAction = intent.getStringExtra(WorkNotebookWidgetProvider.EXTRA_WIDGET_ACTION)
         enableEdgeToEdge()
         setContent {
             WorkNotebookTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     val viewModel: MainViewModel = viewModel()
-                    WorkNotebookScreen(viewModel)
+                    WorkNotebookScreen(viewModel, initialWidgetAction)
                 }
             }
         }
@@ -69,7 +79,10 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun WorkNotebookScreen(viewModel: MainViewModel) {
+private fun WorkNotebookScreen(
+    viewModel: MainViewModel,
+    initialWidgetAction: String?,
+) {
     val items by viewModel.items.collectAsStateWithLifecycle()
     val todayItems by viewModel.todayItems.collectAsStateWithLifecycle()
     val draft by viewModel.draft.collectAsStateWithLifecycle()
@@ -81,6 +94,8 @@ private fun WorkNotebookScreen(viewModel: MainViewModel) {
     var voiceStatus by remember {
         mutableStateOf("말하기를 누르면 다시 누를 때까지 계속 듣습니다.")
     }
+    var cameraStatus by remember { mutableStateOf<String?>(null) }
+    var pendingPhotoPath by remember { mutableStateOf<String?>(null) }
 
     val voiceController = remember(viewModel) {
         VoiceInputController(
@@ -106,6 +121,25 @@ private fun WorkNotebookScreen(viewModel: MainViewModel) {
         }
     }
 
+    val takePictureLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture(),
+    ) { success ->
+        val path = pendingPhotoPath
+        if (success && path != null && File(path).exists()) {
+            viewModel.setPhotoPath(path)
+            cameraStatus = "사진을 첨부했습니다. 필요하면 메모를 적고 저장하세요."
+        } else {
+            path?.let { failedPath ->
+                runCatching {
+                    val file = File(failedPath)
+                    if (file.length() == 0L) file.delete()
+                }
+            }
+            cameraStatus = "촬영을 취소했거나 사진을 저장하지 못했습니다."
+        }
+        pendingPhotoPath = null
+    }
+
     val toggleVoice: () -> Unit = {
         focusManager.clearFocus()
         if (isListening) {
@@ -122,6 +156,27 @@ private fun WorkNotebookScreen(viewModel: MainViewModel) {
         }
     }
 
+    val capturePhoto: () -> Unit = {
+        focusManager.clearFocus()
+        val photoDir = File(context.filesDir, "photos").apply { mkdirs() }
+        val photoFile = File(photoDir, "photo_${System.currentTimeMillis()}.jpg")
+        pendingPhotoPath = photoFile.absolutePath
+        val uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            photoFile,
+        )
+        cameraStatus = "카메라를 여는 중입니다…"
+        takePictureLauncher.launch(uri)
+    }
+
+    LaunchedEffect(initialWidgetAction) {
+        when (initialWidgetAction) {
+            WorkNotebookWidgetProvider.ACTION_RECORD -> toggleVoice()
+            WorkNotebookWidgetProvider.ACTION_CAMERA -> capturePhoto()
+        }
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 32.dp, bottom = 48.dp),
@@ -130,7 +185,7 @@ private fun WorkNotebookScreen(viewModel: MainViewModel) {
         item(key = "header") {
             Column {
                 Text(
-                    text = "업무수첩 Beta 0.1",
+                    text = "업무수첩 Beta 0.2",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                 )
@@ -178,7 +233,13 @@ private fun WorkNotebookScreen(viewModel: MainViewModel) {
                 isListening = isListening,
                 voiceAvailable = voiceController.isAvailable,
                 voiceStatus = voiceStatus,
+                cameraStatus = cameraStatus,
                 onVoiceToggle = toggleVoice,
+                onCapturePhoto = capturePhoto,
+                onDetachPhoto = {
+                    viewModel.setPhotoPath(null)
+                    cameraStatus = "사진 첨부를 해제했습니다. 원본 파일은 임의로 삭제하지 않습니다."
+                },
                 onTitleChange = viewModel::setTitle,
                 onContentChange = viewModel::setContent,
                 onDateChange = viewModel::setWorkDate,
@@ -211,7 +272,7 @@ private fun WorkNotebookScreen(viewModel: MainViewModel) {
 
         item(key = "dev-version") {
             Text(
-                text = "업무수첩 Beta · 0.1.0-dev · 로컬 저장 개발판",
+                text = "업무수첩 Beta · 0.2.0-dev · 로컬 저장 개발판",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 8.dp),
@@ -240,7 +301,10 @@ private fun EntryCard(
     isListening: Boolean,
     voiceAvailable: Boolean,
     voiceStatus: String,
+    cameraStatus: String?,
     onVoiceToggle: () -> Unit,
+    onCapturePhoto: () -> Unit,
+    onDetachPhoto: () -> Unit,
     onTitleChange: (String) -> Unit,
     onContentChange: (String) -> Unit,
     onDateChange: (String?) -> Unit,
@@ -265,6 +329,28 @@ private fun EntryCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = if (isListening) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            OutlinedButton(
+                onClick = onCapturePhoto,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(if (draft.photoPath == null) "📷 문서·사진 찍기" else "📷 사진 다시 찍기")
+            }
+
+            if (cameraStatus != null) {
+                Text(
+                    text = cameraStatus,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            if (draft.photoPath != null) {
+                PhotoPreview(draft.photoPath)
+                TextButton(onClick = onDetachPhoto, modifier = Modifier.fillMaxWidth()) {
+                    Text("사진 첨부 해제")
+                }
+            }
 
             OutlinedTextField(
                 value = draft.title,
@@ -302,7 +388,7 @@ private fun EntryCard(
             Button(
                 onClick = onSave,
                 modifier = Modifier.fillMaxWidth(),
-                enabled = draft.content.isNotBlank() && !isListening,
+                enabled = (draft.content.isNotBlank() || draft.photoPath != null) && !isListening,
             ) {
                 Text(
                     when {
@@ -320,7 +406,7 @@ private fun EntryCard(
             }
 
             Text(
-                text = "작성 중인 내용은 자동으로 임시 보관됩니다. 인터넷 연결 없이도 직접 입력과 로컬 저장은 계속 사용할 수 있습니다.",
+                text = "작성 중인 내용과 사진 참조는 자동으로 임시 보관됩니다. 기록 원본은 휴대폰 안에 저장됩니다.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -425,6 +511,12 @@ private fun WorkItemCard(
                     }
                 }
             }
+
+            if (item.photoPath != null) {
+                Spacer(Modifier.height(8.dp))
+                PhotoPreview(item.photoPath, compact = true)
+            }
+
             HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 TextButton(onClick = onEdit) { Text("수정") }
@@ -434,6 +526,47 @@ private fun WorkItemCard(
             }
         }
     }
+}
+
+@Composable
+private fun PhotoPreview(photoPath: String, compact: Boolean = false) {
+    val bitmap = remember(photoPath) {
+        decodeSampledBitmap(photoPath, if (compact) 900 else 1400, if (compact) 600 else 1000)
+    }
+
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap.asImageBitmap(),
+            contentDescription = "첨부 사진",
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(if (compact) 120.dp else 190.dp),
+            contentScale = ContentScale.Crop,
+        )
+    } else {
+        Text(
+            text = "첨부 사진을 불러올 수 없습니다.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+}
+
+private fun decodeSampledBitmap(path: String, reqWidth: Int, reqHeight: Int): Bitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(path, bounds)
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+
+    var sampleSize = 1
+    while (
+        bounds.outWidth / sampleSize > reqWidth * 2 ||
+        bounds.outHeight / sampleSize > reqHeight * 2
+    ) {
+        sampleSize *= 2
+    }
+
+    val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+    return BitmapFactory.decodeFile(path, options)
 }
 
 @Composable
