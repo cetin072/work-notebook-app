@@ -86,25 +86,57 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
+        val canSplit = current.editingId == null && current.photoPath == null
+        val segments = if (canSplit) WorkItemRules.splitWorkSegments(content) else listOf(content)
+        if (segments.isEmpty()) {
+            _message.value = "저장할 업무 내용을 확인하세요."
+            return
+        }
+
         val now = System.currentTimeMillis()
-        val item = WorkItemEntity(
-            id = current.editingId ?: UUID.randomUUID().toString(),
-            title = WorkItemRules.makeTitle(current.title, content),
-            content = content,
-            workDate = current.workDate,
-            workTime = current.workTime,
-            photoPath = current.photoPath,
-            isCompleted = if (current.editingId != null) current.editingIsCompleted else false,
-            createdAt = current.editingCreatedAt ?: now,
-            updatedAt = now,
-        )
+        val wasEditing = current.editingId != null
+        val itemsToSave = if (wasEditing) {
+            listOf(
+                WorkItemEntity(
+                    id = current.editingId!!,
+                    title = WorkItemRules.makeTitle(current.title, content),
+                    content = content,
+                    workDate = current.workDate,
+                    workTime = current.workTime,
+                    photoPath = current.photoPath,
+                    isCompleted = current.editingIsCompleted,
+                    createdAt = current.editingCreatedAt ?: now,
+                    updatedAt = now,
+                )
+            )
+        } else {
+            segments.mapIndexed { index, segment ->
+                WorkItemEntity(
+                    id = UUID.randomUUID().toString(),
+                    title = WorkItemRules.makeTitle(
+                        explicitTitle = if (segments.size == 1) current.title else "",
+                        content = segment,
+                    ),
+                    content = segment,
+                    workDate = current.workDate,
+                    workTime = current.workTime,
+                    photoPath = current.photoPath,
+                    isCompleted = false,
+                    createdAt = now + index,
+                    updatedAt = now + index,
+                )
+            }
+        }
 
         viewModelScope.launch {
-            repository.upsert(item)
+            itemsToSave.forEach { repository.upsert(it) }
             WorkNotebookWidgetProvider.requestUpdate(getApplication())
-            val wasEditing = current.editingId != null
             clearDraft()
-            _message.value = if (wasEditing) "수정했습니다." else "저장했습니다."
+            _message.value = when {
+                wasEditing -> "수정했습니다."
+                itemsToSave.size > 1 -> "${itemsToSave.size}건으로 나눠 저장했습니다."
+                else -> "저장했습니다."
+            }
         }
     }
 
