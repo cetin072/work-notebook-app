@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.cetin072.worknotebook.data.DraftStore
 import com.cetin072.worknotebook.data.WorkDraft
 import com.cetin072.worknotebook.data.WorkItemEntity
+import com.cetin072.worknotebook.domain.BriefingRules
+import com.cetin072.worknotebook.domain.BriefingSummary
 import com.cetin072.worknotebook.domain.WorkItemRules
 import com.cetin072.worknotebook.widget.WorkNotebookWidgetProvider
 import java.time.LocalDate
@@ -32,6 +34,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             list.filter { WorkItemRules.isTodayPending(it.workDate, it.isCompleted, today) }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val briefing: StateFlow<BriefingSummary> = items
+        .map { list -> BriefingRules.build(list, LocalDate.now().toString()) }
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            BriefingSummary(overdueCount = 0, todayCount = 0, topItems = emptyList()),
+        )
 
     private val _draft = MutableStateFlow(draftStore.load())
     val draft: StateFlow<WorkDraft> = _draft.asStateFlow()
