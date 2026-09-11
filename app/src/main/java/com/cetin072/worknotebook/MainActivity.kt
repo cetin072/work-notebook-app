@@ -74,7 +74,7 @@ private fun WorkNotebookScreen(viewModel: MainViewModel) {
         item(key = "header") {
             Column {
                 Text(
-                    text = "업무수첩",
+                    text = "업무수첩 Beta 0.1",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                 )
@@ -82,6 +82,13 @@ private fun WorkNotebookScreen(viewModel: MainViewModel) {
                     text = "생각날 때 기록하고, 해야 할 때 다시 봅니다.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "개발 중인 테스트 버전입니다.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold,
                 )
             }
         }
@@ -140,6 +147,15 @@ private fun WorkNotebookScreen(viewModel: MainViewModel) {
                     onEdit = { viewModel.edit(item) },
                 )
             }
+        }
+
+        item(key = "dev-version") {
+            Text(
+                text = "업무수첩 Beta · ${BuildConfig.VERSION_NAME} · 로컬 저장 개발판",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp),
+            )
         }
     }
 }
