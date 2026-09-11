@@ -1,11 +1,15 @@
 package com.cetin072.worknotebook
 
+import android.Manifest
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -28,17 +32,23 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.cetin072.worknotebook.data.WorkDraft
 import com.cetin072.worknotebook.data.WorkItemEntity
+import com.cetin072.worknotebook.speech.VoiceInputController
 import com.cetin072.worknotebook.ui.theme.WorkNotebookTheme
 import java.time.LocalDate
 import java.time.LocalTime
@@ -65,6 +75,52 @@ private fun WorkNotebookScreen(viewModel: MainViewModel) {
     val draft by viewModel.draft.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
     val focusManager = LocalFocusManager.current
+    val context = LocalContext.current
+
+    var isListening by remember { mutableStateOf(false) }
+    var voiceStatus by remember {
+        mutableStateOf("말하기를 누르면 다시 누를 때까지 계속 듣습니다.")
+    }
+
+    val voiceController = remember(viewModel) {
+        VoiceInputController(
+            context = context,
+            onText = viewModel::setContent,
+            onListeningChanged = { isListening = it },
+            onStatus = { voiceStatus = it },
+        )
+    }
+
+    DisposableEffect(voiceController) {
+        onDispose { voiceController.destroy() }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            voiceController.start(draft.content)
+        } else {
+            isListening = false
+            voiceStatus = "음성 기록을 사용하려면 마이크 권한을 허용해주세요."
+        }
+    }
+
+    val toggleVoice: () -> Unit = {
+        focusManager.clearFocus()
+        if (isListening) {
+            voiceController.stop()
+        } else if (!voiceController.isAvailable) {
+            voiceStatus = "이 기기에서 음성인식을 사용할 수 없습니다. 키보드 음성입력을 사용해주세요."
+        } else if (
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            voiceController.start(draft.content)
+        } else {
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -119,6 +175,10 @@ private fun WorkNotebookScreen(viewModel: MainViewModel) {
             EntryCard(
                 draft = draft,
                 message = message,
+                isListening = isListening,
+                voiceAvailable = voiceController.isAvailable,
+                voiceStatus = voiceStatus,
+                onVoiceToggle = toggleVoice,
                 onTitleChange = viewModel::setTitle,
                 onContentChange = viewModel::setContent,
                 onDateChange = viewModel::setWorkDate,
@@ -177,6 +237,10 @@ private fun SectionTitle(title: String, count: String? = null) {
 private fun EntryCard(
     draft: WorkDraft,
     message: String?,
+    isListening: Boolean,
+    voiceAvailable: Boolean,
+    voiceStatus: String,
+    onVoiceToggle: () -> Unit,
     onTitleChange: (String) -> Unit,
     onContentChange: (String) -> Unit,
     onDateChange: (String?) -> Unit,
@@ -189,6 +253,19 @@ private fun EntryCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            Button(
+                onClick = onVoiceToggle,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = voiceAvailable,
+            ) {
+                Text(if (isListening) "■ 중지하기" else "🎙 말하기")
+            }
+            Text(
+                text = if (voiceAvailable) voiceStatus else "이 기기에서는 앱 내 음성인식을 사용할 수 없습니다.",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (isListening) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
             OutlinedTextField(
                 value = draft.title,
                 onValueChange = onTitleChange,
@@ -225,9 +302,15 @@ private fun EntryCard(
             Button(
                 onClick = onSave,
                 modifier = Modifier.fillMaxWidth(),
-                enabled = draft.content.isNotBlank(),
+                enabled = draft.content.isNotBlank() && !isListening,
             ) {
-                Text(if (draft.editingId == null) "저장" else "수정 저장")
+                Text(
+                    when {
+                        isListening -> "음성 중지 후 저장"
+                        draft.editingId == null -> "저장"
+                        else -> "수정 저장"
+                    },
+                )
             }
 
             if (draft.editingId != null) {
@@ -237,7 +320,7 @@ private fun EntryCard(
             }
 
             Text(
-                text = "작성 중인 내용은 자동으로 임시 보관됩니다. 인터넷 연결은 필요하지 않습니다.",
+                text = "작성 중인 내용은 자동으로 임시 보관됩니다. 인터넷 연결 없이도 직접 입력과 로컬 저장은 계속 사용할 수 있습니다.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
