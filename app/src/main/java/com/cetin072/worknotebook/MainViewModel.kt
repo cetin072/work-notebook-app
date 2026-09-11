@@ -7,6 +7,7 @@ import com.cetin072.worknotebook.data.DraftStore
 import com.cetin072.worknotebook.data.WorkDraft
 import com.cetin072.worknotebook.data.WorkItemEntity
 import com.cetin072.worknotebook.domain.WorkItemRules
+import com.cetin072.worknotebook.widget.WorkNotebookWidgetProvider
 import java.time.LocalDate
 import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -85,6 +86,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             repository.upsert(item)
+            WorkNotebookWidgetProvider.requestUpdate(getApplication())
             val wasEditing = current.editingId != null
             clearDraft()
             _message.value = if (wasEditing) "수정했습니다." else "저장했습니다."
@@ -94,6 +96,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleCompleted(item: WorkItemEntity) {
         viewModelScope.launch {
             repository.setCompleted(item.id, !item.isCompleted)
+            WorkNotebookWidgetProvider.requestUpdate(getApplication())
             _message.value = if (item.isCompleted) "미완료로 되돌렸습니다." else "완료했습니다."
         }
     }
