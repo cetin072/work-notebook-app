@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>업무수첩 Beta Preview</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:#15243b;background:#f5f7fb}
+*{box-sizing:border-box}body{margin:0;background:#f5f7fb}.wrap{max-width:680px;margin:0 auto;padding:24px 16px 72px}
+.head{margin:8px 0 18px}.head h1{font-size:28px;margin:0 0 4px}.sub{color:#617087;font-size:14px}.beta{color:#1e5aa8;font-size:13px;font-weight:700;margin-top:5px}
+.card{background:white;border:1px solid #dde4ee;border-radius:18px;padding:16px;margin:12px 0;box-shadow:0 4px 18px rgba(30,55,90,.05)}
+.row{display:flex;align-items:center;gap:10px}.between{justify-content:space-between}.title{font-size:18px;font-weight:800}.muted{color:#6c7a90;font-size:13px}.danger{color:#b3261e}.item{padding:10px 0;border-top:1px solid #edf0f5}.item:first-of-type{border-top:0}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}button{border:0;border-radius:14px;padding:13px 14px;font-size:16px;font-weight:700;cursor:pointer}.primary{background:#173c6d;color:white}.outline{background:white;color:#173c6d;border:1px solid #9fb0c7}.save{width:100%;background:#173c6d;color:white;margin-top:12px}
+input,textarea{width:100%;border:1px solid #bcc8d8;border-radius:12px;padding:12px;font-size:16px;margin:7px 0;background:white}textarea{min-height:100px;resize:vertical}.smallgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.tag{font-size:12px;background:#eef4ff;color:#264d80;padding:4px 8px;border-radius:999px}.done{text-decoration:line-through;color:#78879b}.notice{background:#fff9e7;border:1px solid #f0d77c;color:#6d5a17;border-radius:14px;padding:12px;font-size:13px;margin:10px 0}.foot{font-size:12px;color:#75839a;margin-top:20px;text-align:center}
+@media(max-width:420px){.wrap{padding-left:12px;padding-right:12px}.head h1{font-size:25px}.actions,.smallgrid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>업무수첩 Beta 0.2</h1>
+    <div class="sub">생각날 때 기록하고, 해야 할 때 다시 봅니다.</div>
+    <div class="beta">웹 빠른확인용 · 실제 Android 기능은 Play Beta에서 검수</div>
+  </div>
+
+  <div class="notice">이 페이지는 화면·사용 흐름 확인용입니다. 마이크, 홈 위젯, 실제 카메라/Room DB 동작은 Android 내부테스트판에서 확인합니다.</div>
+
+  <section class="card">
+    <div class="row between"><div class="title">오늘 브리핑</div><div id="briefCounts" class="muted">지연 0 · 오늘 0</div></div>
+    <div id="briefList"></div>
+    <div class="muted" style="margin-top:8px">인터넷이나 AI 없이 로컬 기록만으로 정리하는 흐름을 미리 봅니다.</div>
+  </section>
+
+  <section class="card">
+    <div class="row between"><div class="title">빠른 기록</div><span class="tag">Preview</span></div>
+    <div class="actions">
+      <button class="primary" onclick="nativeOnly('음성 기록')">🎙 말하기</button>
+      <button class="outline" onclick="nativeOnly('카메라 촬영')">📷 문서·사진 찍기</button>
+    </div>
+    <input id="title" placeholder="제목 (선택)" />
+    <textarea id="content" placeholder="예: 대표님께 견적 검토 결과 보고"></textarea>
+    <div class="smallgrid">
+      <input id="date" type="date" />
+      <input id="time" type="time" />
+    </div>
+    <button class="save" onclick="saveItem()">저장</button>
+    <div id="saveMsg" class="muted" style="margin-top:8px"></div>
+  </section>
+
+  <section class="card">
+    <div class="row between"><div class="title">오늘 업무 전체</div><div id="todayCount" class="muted">0건</div></div>
+    <div id="todayList"></div>
+  </section>
+
+  <section class="card">
+    <div class="row between"><div class="title">전체 기록</div><button class="outline" style="padding:7px 10px;font-size:12px" onclick="resetDemo()">데모 초기화</button></div>
+    <div id="allList"></div>
+  </section>
+
+  <div class="foot">업무수첩 Beta · 웹 Preview · 데이터는 이 브라우저에만 임시 저장됩니다.</div>
+</div>
+<script>
+const KEY='work-notebook-preview-v1';
+function localDateString(date=new Date()){const y=date.getFullYear();const m=String(date.getMonth()+1).padStart(2,'0');const d=String(date.getDate()).padStart(2,'0');return `${y}-${m}-${d}`}
+const today=()=>localDateString();
+function demo(){const t=today();const d=new Date();d.setDate(d.getDate()-1);const y=localDateString(d);return[
+{id:'d1',title:'대표 보고자료 정리',content:'대표 보고자료 정리',date:y,time:'',done:false},
+{id:'d2',title:'범한 견적 확인',content:'범한 견적 확인',date:t,time:'10:30',done:false},
+{id:'d3',title:'농장 일정 확인',content:'농장 일정 확인',date:t,time:'',done:false}
+]}
+function load(){try{return JSON.parse(localStorage.getItem(KEY))||demo()}catch(e){return demo()}}
+function store(x){localStorage.setItem(KEY,JSON.stringify(x));render()}
+function resetDemo(){localStorage.removeItem(KEY);render()}
+function splitSegments(text){const parts=text.split(/\s*(?:다음\s*업무|다음\s*건|그다음)\s*/).map(x=>x.trim()).filter(Boolean);return parts.length?parts:[text.trim()]}
+function saveItem(){const c=document.getElementById('content').value.trim();if(!c)return alert('업무 내용을 입력하세요.');const title=document.getElementById('title').value.trim();const date=document.getElementById('date').value||null;const time=document.getElementById('time').value||null;const segs=splitSegments(c);const arr=load();segs.forEach((s,i)=>arr.unshift({id:Date.now()+'-'+i,title:segs.length===1&&title?title:s.slice(0,60),content:s,date,time,done:false}));store(arr);document.getElementById('content').value='';document.getElementById('title').value='';document.getElementById('saveMsg').textContent=segs.length>1?`${segs.length}건으로 나눠 저장했습니다.`:'저장했습니다.'}
+function toggle(id){const arr=load();const it=arr.find(x=>x.id===id);if(it)it.done=!it.done;store(arr)}
+function nativeOnly(name){alert(`${name}은 실제 Android 기능입니다. 웹 Preview에서는 화면 흐름만 확인합니다.`)}
+function itemHtml(it,meta){return `<div class="item"><div class="row"><input style="width:20px;margin:0" type="checkbox" ${it.done?'checked':''} onchange="toggle('${it.id}')"><div style="flex:1"><div class="${it.done?'done':''}" style="font-weight:700">${escapeHtml(it.title)}</div><div class="muted ${meta&&meta.startsWith('지연')?'danger':''}">${escapeHtml(meta||[it.date,it.time].filter(Boolean).join(' · '))}</div></div></div></div>`}
+function escapeHtml(s){return String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+function render(){const arr=load();const t=today();const act=arr.filter(x=>!x.done&&x.date&&x.date<=t).sort((a,b)=>{const ao=a.date<t?0:1,bo=b.date<t?0:1;if(ao!==bo)return ao-bo;if(a.date!==b.date)return a.date.localeCompare(b.date);if(ao===1){const at=a.time?0:1,bt=b.time?0:1;if(at!==bt)return at-bt;return (a.time||'').localeCompare(b.time||'')}return 0});const overdue=act.filter(x=>x.date<t).length;const tod=act.filter(x=>x.date===t).length;document.getElementById('briefCounts').textContent=`지연 ${overdue} · 오늘 ${tod}`;document.getElementById('briefList').innerHTML=act.slice(0,3).map(x=>itemHtml(x,x.date<t?`지연 · ${x.date}`:x.time?`오늘 ${x.time}`:'오늘')).join('')||'<div class="muted" style="padding-top:10px">지금 바로 처리할 지연·오늘 업무가 없습니다.</div>';const todayItems=arr.filter(x=>!x.done&&x.date===t);document.getElementById('todayCount').textContent=`${todayItems.length}건`;document.getElementById('todayList').innerHTML=todayItems.map(x=>itemHtml(x)).join('')||'<div class="muted" style="padding-top:10px">오늘로 지정된 미완료 업무가 없습니다.</div>';document.getElementById('allList').innerHTML=arr.map(x=>itemHtml(x)).join('')||'<div class="muted" style="padding-top:10px">아직 저장된 기록이 없습니다.</div>'}
+render();
+</script>
+</body>
+</html>
